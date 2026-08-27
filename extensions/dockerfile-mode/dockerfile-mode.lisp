@@ -84,8 +84,7 @@
     (:name "Dockerfile"
      :keymap *dockerfile-mode-keymap*
      :syntax-table *dockerfile-syntax-table*
-     :mode-hook *dockerfile-mode-hook*
-     :formatter #'dockerfile-dockerfmt)
+     :mode-hook *dockerfile-mode-hook*)
   "Major mode for writing/modifying dockerfiles"
   (let ((query-path (tree-sitter-query-path)))
     (when (and query-path (probe-file query-path))
