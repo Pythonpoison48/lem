@@ -898,10 +898,52 @@ Use this when lsp-mode has side effects that you want to avoid."
       (move-to-lsp-position end range-end)
       (list start end))))
 
+(defun raw-item-filter-text (item)
+  (let ((text (handler-case (lsp:completion-item-filter-text item)
+                (unbound-slot () nil))))
+    (if (alexandria:emptyp text)
+        (lsp:completion-item-label item)
+        text)))
+
+(defun raw-item-sort-text (item)
+  (let ((text (handler-case (lsp:completion-item-sort-text item)
+                (unbound-slot () nil))))
+    (if (alexandria:emptyp text)
+        (lsp:completion-item-label item)
+        text)))
+
+(defun filter-raw-completion-items (prefix items)
+  "Filter raw LSP completion items without allocating intermediate Lem objects."
+  (let ((item-list (if (vectorp items) (coerce items 'list) items)))
+    (if (alexandria:emptyp prefix)
+        item-list
+        (loop :for item :in item-list
+              :when (fuzzy-match-p prefix (raw-item-filter-text item))
+              :collect item))))
+
+(defun rank-and-sort-completion-items (prefix items)
+  "Schwartzian transform: precompute rank once per item,
+then stable-sort by rank (primary) and sortText (secondary)."
+  (let ((decorated
+          (mapcar (lambda (item)
+                    (list (if (alexandria:emptyp prefix)
+                              0
+                              (string-completion-rank prefix (lsp:completion-item-label item)))
+                          (raw-item-sort-text item)
+                          item))
+                  items)))
+    (setf decorated
+          (stable-sort decorated
+                       (lambda (a b)
+                         (let ((rank-a (first a))
+                               (rank-b (first b)))
+                           (if (/= rank-a rank-b)
+                               (< rank-a rank-b)
+                               (string< (second a) (second b)))))))
+    (mapcar #'third decorated)))
+
 (defun convert-completion-items (point items)
-  (labels ((sort-items (items)
-             (sort items #'string< :key #'completion-item-sort-text))
-           (label-and-points (item)
+  (labels ((label-and-points (item)
              (let ((text-edit
                      (handler-case (lsp:completion-item-text-edit item)
                        (unbound-slot () nil))))
@@ -922,9 +964,7 @@ Use this when lsp-mode has side effects that you want to avoid."
                 :label label
                 :detail (handler-case (lsp:completion-item-detail item)
                           (unbound-slot () ""))
-                :sort-text (handler-case (lsp:completion-item-sort-text item)
-                             (unbound-slot ()
-                               (lsp:completion-item-label item)))
+                :sort-text (raw-item-sort-text item)
                 :focus-action (when-let* ((documentation
                                            (handler-case (lsp:completion-item-documentation item)
                                              (unbound-slot () nil)))
@@ -939,10 +979,9 @@ Use this when lsp-mode has side effects that you want to avoid."
                                    :source-window (lem/popup-menu::popup-menu-window
                                                    (lem/completion-mode::context-popup-menu
                                                     context)))))))))
-    (sort-items
-     (map 'list
-          #'make-completion-item
-          items))))
+    (map 'list
+         #'make-completion-item
+         items)))
 
 (defun convert-completion-list (point completion-list)
   (convert-completion-items point (lsp:completion-list-items completion-list)))
@@ -954,6 +993,15 @@ Use this when lsp-mode has side effects that you want to avoid."
          (convert-completion-items point value))
         (t
          nil)))
+
+(defun extract-raw-completion-items (response)
+  (cond ((typep response 'lsp:completion-list)
+         (lsp:completion-list-items response))
+        ((lsp-array-p response)
+         response)
+        ((listp response)
+         response)
+        (t nil)))
 
 (defun provide-completion-p (workspace)
   (handler-case (lsp:server-capabilities-completion-provider
@@ -970,12 +1018,15 @@ Use this when lsp-mode has side effects that you want to avoid."
               'lsp:completion-params
               (make-text-document-position-arguments point))
        :then (lambda (response)
-               (funcall then
-                        (if-let ((symbol-at-point (symbol-string-at-point point)))
-                          (completion-strings symbol-at-point
-                                              (convert-completion-response point response)
-                                              :key #'lem/completion-mode::completion-item-label)
-                          (convert-completion-response point response))))))))
+               (let* ((raw-items (extract-raw-completion-items response))
+                      (prefix (symbol-string-at-point point))
+                      (filtered (filter-raw-completion-items prefix raw-items))
+                      (ranked (rank-and-sort-completion-items prefix filtered))
+                      (limit (or completion:*limit-number-of-items* 100))
+                      (top (if (and limit (> (length ranked) limit))
+                               (subseq ranked 0 limit)
+                               ranked)))
+                 (funcall then (convert-completion-items point top))))))))
 
 (defun completion-with-trigger-character (c)
   (declare (ignore c))

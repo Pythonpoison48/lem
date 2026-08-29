@@ -83,8 +83,12 @@ Retourne un vecteur (lsp-array)."
                                      :sort-text sort-text
                                      :filter-text (when filter-p
                                                     (subseq label 0 (max 3 (1- (length label)))))
-                                     :detail (when detail-p
-                                               (format nil "Function (arg1 arg2) n=~D" i))))))))
+                                     ;; pas de :detail quand detail-p est nil :
+                                     ;; nil n'est pas un lsp-string valide
+                                     ;; (JSON-TYPE-ERROR, cf. check-initargs)
+                                     ,@(when detail-p
+                                         (list :detail
+                                               (format nil "Function (arg1 arg2) n=~D" i)))))))))
 
 (defun generate-completion-list-response (n)
   "Variante enveloppée dans lsp:completion-list (les DEUX branches de

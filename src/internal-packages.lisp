@@ -598,6 +598,8 @@
   ;; comp.lisp
   (:export
    :*file-completion-ignore-case*
+   :fuzzy-match-p
+   :string-completion-rank
    :completion
    :completion-test
    :completion-hyphen

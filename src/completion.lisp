@@ -47,7 +47,12 @@
                                #'test-without-separator)
                            elements)))
       (if rank
-          (sort filtered-elements #'< :key (lambda (elt) (funcall rank name (apply-key elt))))
+          (let ((decorated (mapcar (lambda (elt)
+                                     (cons (funcall rank name (apply-key elt))
+                                           elt))
+                                   filtered-elements)))
+            (setf decorated (stable-sort decorated #'< :key #'car))
+            (mapcar #'cdr decorated))
           filtered-elements))))
 
 (defun string-completion-rank (name elt)

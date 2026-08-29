@@ -8,7 +8,8 @@
            :run-completion
            :completion-end
            :completion-mode
-           :completion-refresh)
+           :completion-refresh
+           :*limit-number-of-items*)
   #+sbcl
   (:lock t))
 (in-package :lem/completion-mode)
