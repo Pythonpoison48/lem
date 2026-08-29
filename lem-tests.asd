@@ -39,7 +39,8 @@
                              (:file "test-utils")
                              (:file "tests")
                              (:file "integration-tests")
-                             (:file "spec-test")))
+                             (:file "spec-test")
+			     (:file "benchmarks" 	)))
                #+sbcl
                (:module "mcp-server"
                 :components ((:file "utils")

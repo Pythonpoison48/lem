@@ -1,5 +1,6 @@
 (defpackage :lem-tests/lsp-mode/bench
-  (:use :cl :alexandria)
+  (:use :cl)
+  (:local-nicknames (:alexandria :alexandria))
   (:import-from :lem
                 #:make-buffer
                 #:delete-buffer
@@ -12,8 +13,6 @@
   (:import-from :lem-core
                 #:fuzzy-match-p
                 #:string-completion-rank)
-  (:import-from :lem/completion-mode
-                #:completion-item-label)
   (:import-from :lem-lsp-mode
                 #:convert-completion-response
                 #:convert-completion-items)
@@ -99,7 +98,7 @@ convert-completion-response, lsp-mode.lisp:950-956, doivent être mesurées)."
 ;;; ============================================================
 
 (defun bytes-consed ()
-  #+sbcl (sb-kernel:get-bytes-consed)
+  #+sbcl (sb-kernel::get-bytes-consed)
   #-sbcl 0)
 
 (defun median (list)
@@ -181,7 +180,7 @@ items ont un textEdit (pas le cas ici)."
 (defun b3-filter-raw (prefix items)
   "Filtre fuzzy sur les items BRUTS (zéro allocation d'objet métier).
 filterText si présent, sinon label."
-  (if (emptyp prefix)
+  (if (alexandria:emptyp prefix)
       (coerce items 'list)
       (loop :for item :across items
             :for text := (or (raw-item-filter-text item)
@@ -194,7 +193,7 @@ filterText si présent, sinon label."
 stable-sort (2e clé d'abord, 1re clé ensuite) = ordre composite lexicographique
 (rank asc, sortText asc). Conserve l'ordre serveur à rank égal."
   (let ((decorated (mapcar (lambda (item)
-                             (list (if (emptyp prefix)
+                             (list (if (alexandria:emptyp prefix)
                                        0
                                        (string-completion-rank
                                         prefix (lsp:completion-item-label item)))
