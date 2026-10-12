@@ -246,6 +246,7 @@
                "lem-c-mode"
                "lem-python-mode"
                "lem-posix-shell-mode"
+               "lem-powershell-mode"
                "lem-xml-mode"
                "lem-js-mode"
                "lem-css-mode"
