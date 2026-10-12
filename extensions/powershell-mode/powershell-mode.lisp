@@ -1,9 +1,9 @@
 (defpackage :lem-powershell-mode
   (:use :cl :lem :lem/language-mode)
   (:export :*powershell-mode-hook*
-           :*powershell-mode-keymap*
+   :*powershell-mode-keymap*
            :*powershell-syntax-table*
-           :powershell-mode))
+   :powershell-mode))
 (in-package :lem-powershell-mode)
 
 (defvar *powershell-keywords*
@@ -44,20 +44,7 @@
    :block-string-pairs '(("@\"" . "\"@")
                          ("@'" . "'@"))))
 
-(define-major-mode powershell-mode language-mode
-    (:name "PowerShell"
-     :description "Major mode for editing PowerShell scripts."
-     :keymap *powershell-mode-keymap*
-     :syntax-table *powershell-syntax-table*
-     :mode-hook *powershell-mode-hook*)
-  (setf (variable-value 'enable-syntax-highlight) t
-        (variable-value 'indent-tabs-mode) nil
-        (variable-value 'tab-width) 4
-        (variable-value 'calc-indent-function) 'calc-indent
-        (variable-value 'beginning-of-defun-function) 'beginning-of-defun
-        (variable-value 'end-of-defun-function) 'end-of-defun
-        (variable-value 'line-comment) "#"
-        (variable-value 'insertion-line-comment) "# "))
+
 
 (defun beginning-of-defun (point n)
   (loop :repeat n
@@ -184,6 +171,41 @@
     (make-tmlanguage :patterns patterns :repository repository)))
 
 (set-syntax-parser *powershell-syntax-table* (make-tmlanguage-powershell))
+
+
+
+(defun tree-sitter-query-path ()
+  "Return the path to the tree-sitter highlight query for Powershell."
+  (asdf:system-relative-pathname :lem-powershell-mode "tree-sitter/highlights.scm"))
+
+
+(defun try-enable-tree-sitter ()
+  "Try to enable tree-sitter for Powershell mode. Falls back to tmlanguage if unavailable."
+  (ignore-errors
+   (when (and (find-package :lem-tree-sitter)
+              (fboundp (find-symbol "TREE-SITTER-AVAILABLE-P" :lem-tree-sitter))
+              (funcall (find-symbol "TREE-SITTER-AVAILABLE-P" :lem-tree-sitter)))
+     (funcall (find-symbol "ENABLE-TREE-SITTER-FOR-MODE" :lem-tree-sitter)
+              *powershell-syntax-table* "Powershell" (tree-sitter-query-path)
+              :indent-query-path (tree-sitter-indent-query-path))
+     t)))
+
+
+(define-major-mode powershell-mode language-mode
+  (:name "PowerShell"
+   :description "Major mode for editing PowerShell scripts."
+   :keymap *powershell-mode-keymap*
+   :syntax-table *powershell-syntax-table*
+   :mode-hook *powershell-mode-hook*)
+  (try-enable-tree-sitter)
+  (setf (variable-value 'enable-syntax-highlight) t
+        (variable-value 'indent-tabs-mode) nil
+        (variable-value 'tab-width) 4
+        (variable-value 'calc-indent-function) 'calc-indent
+        (variable-value 'beginning-of-defun-function) 'beginning-of-defun
+        (variable-value 'end-of-defun-function) 'end-of-defun
+        (variable-value 'line-comment) "#"
+        (variable-value 'insertion-line-comment) "# "))
 
 (define-file-type ("ps1" "psm1" "psd1") powershell-mode)
 (define-program-name-with-mode ("pwsh" "powershell") powershell-mode)
